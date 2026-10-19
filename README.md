@@ -206,3 +206,7 @@ Also tested here:
 ## License
 
 MIT for the files written for this kit (see `LICENSE`). safegit (`vendor/safegit`) and git-wait (`vendor/git-wait`) are MIT-licensed by their authors.
+
+## Author
+
+Chih-Hsueh "Josh" HUANG
