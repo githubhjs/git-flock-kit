@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# git-flock-autocommit: commit the given files through git flock-commit, and
+# quietly do nothing when none of them changed. Meant for an agent's
+# end-of-turn hook, e.g. in ChipAgents' .chipagents/hooks.toml:
+#
+#   [[end_turn]]
+#   type = "bash"
+#   command = 'git-flock-autocommit -m "ChipAgents auto-commit" {{FILES}}'
+#
+#   git-flock-autocommit [-m message] [file...]
+#
+# The default message comes from GIT_FLOCK_AUTOCOMMIT_MESSAGE, else
+# "agent auto-commit".
+
+set -euo pipefail
+
+message="${GIT_FLOCK_AUTOCOMMIT_MESSAGE:-agent auto-commit}"
+if [[ "${1:-}" == "-m" ]]; then
+  [[ $# -ge 2 ]] || { echo 'usage: git-flock-autocommit [-m message] [file...]' >&2; exit 2; }
+  message="$2"
+  shift 2
+fi
+
+# Keep only files with changes; git commit fails on an unchanged path, and
+# ignored files must not be committed.
+changed=()
+for file in "$@"; do
+  if [[ -n "$(git status --porcelain -- "$file")" ]]; then
+    changed+=("$file")
+  fi
+done
+[[ ${#changed[@]} -gt 0 ]] || exit 0
+
+exec "$(dirname "$0")/git-flock-commit" -q -m "$message" -- "${changed[@]}"

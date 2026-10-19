@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# git-flock-commit: stage and commit ONLY the named paths as one atomic step,
+# under the same repository lock git-flock uses. Whatever other agents have
+# staged or changed is never swept into this commit, and their staged work
+# stays staged.
+#
+#   git flock-commit -m "message" [git-commit options] -- <path>...
+#
+# New, modified and deleted files under <path> are all committed.
+
+set -euo pipefail
+
+usage() {
+  echo 'usage: git flock-commit -m "message" [git-commit options] -- <path>...' >&2
+  exit 2
+}
+
+# Re-run this script while holding the repository lock.
+if [[ -z "${GIT_FLOCK_HELD:-}" ]]; then
+  exec "$(dirname "$0")/git-flock" --exec "$0" "$@"
+fi
+
+commit_opts=()
+while [[ $# -gt 0 && "$1" != "--" ]]; do
+  case "$1" in
+    -a|--all|--amend|-i|--include|--interactive|--patch|-p)
+      echo "git-flock-commit: $1 is not allowed; name the paths to commit after --" >&2
+      exit 2
+      ;;
+  esac
+  commit_opts+=("$1")
+  shift
+done
+[[ $# -ge 2 ]] || usage
+shift
+paths=("$@")
+
+git add -A -- "${paths[@]}"
+exec git commit --only "${commit_opts[@]}" -- "${paths[@]}"

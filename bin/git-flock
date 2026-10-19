@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# git-flock: run a git command (or any program) while holding one
+# repository-wide lock, so several AI agents sharing a repository never race
+# on .git/index.lock or interleave their writes.
+#
+#   git flock <git-subcommand> [args...]     e.g. git flock pull --rebase
+#   git flock --exec <program> [args...]     run anything under the lock
+#
+# The lock is kernel-held (flock(2)): it is released automatically when the
+# process exits, even on kill -9, so it never goes stale.
+#
+# Environment:
+#   GIT_FLOCK_TIMEOUT  seconds to wait for the lock (default 300).
+#                      On timeout git-flock exits 75 (EX_TEMPFAIL).
+#   GIT_FLOCK_HELD     set while the lock is held; nested calls (e.g. from a
+#                      git hook) run directly instead of deadlocking.
+
+set -euo pipefail
+
+usage() {
+  echo "usage: git flock <git-subcommand> [args...]" >&2
+  echo "       git flock --exec <program> [args...]" >&2
+  exit 2
+}
+
+[[ $# -gt 0 ]] || usage
+
+if [[ "$1" == "--exec" ]]; then
+  shift
+  [[ $# -gt 0 ]] || usage
+  cmd=("$@")
+else
+  # Honor a leading -C <dir> so the lock belongs to the right repository.
+  if [[ "$1" == "-C" && $# -ge 2 ]]; then
+    cd "$2"
+    shift 2
+    [[ $# -gt 0 ]] || usage
+  fi
+  # Read-only commands never take index.lock; skip the lock so a long
+  # `git log` in a pager does not block every agent.
+  case "$1" in
+    log|show|diff|blame|grep|ls-files|ls-tree|cat-file|rev-parse|describe|shortlog|help|version)
+      exec git "$@"
+      ;;
+  esac
+  cmd=(git "$@")
+fi
+
+if [[ -n "${GIT_FLOCK_HELD:-}" ]]; then
+  exec "${cmd[@]}"
+fi
+
+timeout="${GIT_FLOCK_TIMEOUT:-300}"
+# The common dir is shared by every worktree, so all of them use one lock.
+lock_file="$(git rev-parse --git-common-dir)/git-flock.lock"
+export GIT_FLOCK_HELD=1
+
+if command -v flock > /dev/null 2>&1; then
+  # -o: git's detached `gc --auto` must not inherit and keep holding the lock.
+  exec flock -o -w "$timeout" -E 75 "$lock_file" "${cmd[@]}"
+fi
+
+# No util-linux flock (e.g. Git Bash on Windows): same flock(2) lock via perl.
+exec perl -MFcntl=:flock -e '
+  my ($lock, $timeout, @cmd) = @ARGV;
+  open(my $fh, ">>", $lock) or die "git-flock: cannot open $lock: $!\n";
+  my $deadline = time + $timeout;
+  until (flock($fh, LOCK_EX | LOCK_NB)) {
+    if (time >= $deadline) {
+      warn "git-flock: timed out after ${timeout}s waiting for $lock\n";
+      exit 75;
+    }
+    select(undef, undef, undef, 0.05);
+  }
+  my $rc = system(@cmd);
+  exit($rc == -1 ? 127 : ($rc & 127) ? 128 + ($rc & 127) : $rc >> 8);
+' "$lock_file" "$timeout" "${cmd[@]}"

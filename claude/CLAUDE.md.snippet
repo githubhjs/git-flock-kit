@@ -1,0 +1,14 @@
+## Git in this repository (shared by several agents)
+
+Several AI agents work in this repository at the same time.
+
+- Commit ONLY the files you changed, in one step:
+  `git flock-commit -m "<message>" -- <file> [<file>...]`
+- Run every other git command that writes (pull, push, merge, rebase, stash,
+  switch, checkout, reset, tag, branch) through the lock:
+  `git flock <command> ...`
+- Never run plain `git add` or `git commit`, and never `git commit -a`,
+  `git add -A` or `git add .` — they sweep other agents' work into your commit.
+- If `git status` shows changes you did not make, leave them alone.
+- If a git-flock command exits 75, the repository was busy for 5 minutes;
+  wait a moment and retry.

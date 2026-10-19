@@ -1,0 +1,23 @@
+# Append to the repository's .chipagents/hooks.toml when several ChipAgents
+# agents share one repository. Check it with:
+#   chipagents validate .chipagents/hooks.toml
+
+# Commit each agent's own edited files at the end of its turn, serialized
+# through git-flock. Use this instead of the built-in git_commit hook, which
+# races on .git/index and, with squash = true, can amend another agent's
+# commit when they share an author.
+[[end_turn]]
+type = "bash"
+command = 'git-flock-autocommit -m "ChipAgents auto-commit" {{FILES}}'
+patterns = ["**/*.sv", "**/*.svh", "**/*.v", "**/*.vh"]
+timeout = 300
+
+# Client-agent mode only: refuse plain git add / git commit from the agent's
+# shell tool. ChipAgents' shell tool is "Bash" (confirmed in exported
+# transcripts, where commits run as Bash(git add ...) / Bash(git commit ...);
+# its separate Git tool was only seen doing status/log/diff).
+[[pre_tool_use]]
+type = "bash"
+tools = ["Bash"]
+command = "git-flock-guard"
+blocking = true
