@@ -116,7 +116,7 @@ git flock --exec sh -c 'git fetch && git rebase origin/main && git push'
    | Hook | What it does |
    |---|---|
    | `end_turn` → `git-flock-autocommit … {{FILES}}` | At the end of each turn, commits only the files that agent edited, under the lock |
-   | `pre_tool_use` → `git-flock-guard` (`blocking = true`) | Refuses plain `git add` / `git commit` from the agent's shell (ChipAgents' shell tool is `Bash`, confirmed from real transcripts). **Client-agent mode only.** |
+   | `pre_tool_use` → `git-flock-guard` (`blocking = true`) | Refuses plain `git add` / `git commit` from the agent's shell (ChipAgents' shell tool is `Bash`; measured on ChipAgents 0.42.3, where it fires in normal mode and blocked a real `git add`) |
 
 ### Don't use ChipAgents' built-in `git_commit` hook with several agents on one repository
 

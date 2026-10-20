@@ -12,8 +12,9 @@ command = 'git-flock-autocommit -m "ChipAgents auto-commit" {{FILES}}'
 patterns = ["**/*.sv", "**/*.svh", "**/*.v", "**/*.vh"]
 timeout = 300
 
-# Client-agent mode only: refuse plain git add / git commit from the agent's
-# shell tool. ChipAgents' shell tool is "Bash" (confirmed in exported
+# Refuse plain git add / git commit from the agent's shell tool. pre_tool_use
+# fires in normal mode (measured on ChipAgents 0.42.3; client-agent mode is no
+# longer a separate mode). ChipAgents' shell tool is "Bash" (confirmed in exported
 # transcripts, where commits run as Bash(git add ...) / Bash(git commit ...);
 # its separate Git tool was only seen doing status/log/diff).
 [[pre_tool_use]]
