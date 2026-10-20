@@ -13,7 +13,13 @@ set -uo pipefail
 agents="${1:-8}"
 per_agent="${2:-5}"
 here="$(cd "$(dirname "$0")" && pwd)"
-export PATH="$here/bin:$PATH"
+# Use executable copies of bin/: files copied through a VM shared folder lose
+# their execute bits, and git-flock-commit runs git-flock directly.
+bindir="$(mktemp -d)"
+trap 'rm -rf "$bindir"' EXIT
+cp "$here"/bin/* "$bindir"/
+chmod +x "$bindir"/*
+export PATH="$bindir:$PATH"
 
 run() {
   local mode="$1" work repo
